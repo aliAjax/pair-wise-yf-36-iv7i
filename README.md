@@ -24,7 +24,14 @@ python3 app.py --db ./data.db --port 8302
 
 ## 核心对象
 
-- `participant`：参与者；`consent`：同意版本；`sample`：样本；`withdrawal`：撤回申请。
+- `participant`：参与者；`template`：同意书模板（含版本与正文摘要）；`consent`：同意书（草稿→已签→生效，退回补签后重签）；`sample`：样本；`withdrawal`：撤回申请。
+
+## 同意书版本与快照
+
+- 模板由伦理委员会改版后发布新版本（`publish`，可用`supersedes`指代旧模板）。
+- 签署（`sign`）时冻结快照：模板版本、正文摘要、用途`scope`、有效期`expires_at`。
+- 模板改版后：未签草稿自动切到新版；已签未生效的退回补签（状态`returned`，附退回原因）；已生效的仍按原快照办理，旧模板自动归档。
+- 样本借出（`loan`）前自动核对快照；`GET /api/entities/<id>/loan_check`返回模板版本、摘要、冻结用途/有效期及拦截原因，演示页面可直观查看。
 
 ## 主要接口
 
@@ -33,6 +40,7 @@ python3 app.py --db ./data.db --port 8302
 - `POST /api/<kind>`：创建对象；请求体为JSON。
 - `GET /api/entities/<id>`：读取对象当前版本。
 - `POST /api/entities/<id>/actions`：提交`{"action":"动作名","data":{...},"expected_version":数字}`。
+- `GET /api/entities/<id>/loan_check`：借出前快照核对。
 - `GET /api/audit`：读取审计记录。
 
 请求身份通过`X-User-Id`和`X-Role`请求头传入。创建和动作的可执行角色由规则引擎控制。

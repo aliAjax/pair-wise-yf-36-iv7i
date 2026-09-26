@@ -17,17 +17,64 @@
   <p>这是最小演示页面。使用浏览器或 curl 调用 JSON API。</p>
   <p><button onclick="checkHealth()">检查服务状态</button></p>
   <pre id="result">等待操作</pre>
+  <h2>借出前快照核对</h2>
+  <p>
+    <input id="loanSampleId" placeholder="样本 ID" style="padding:.4rem;width:20rem">
+    <button onclick="loanCheck()">核对快照</button>
+  </p>
+  <pre id="loanResult">尚未核对</pre>
+  <h2>退回补签列表</h2>
+  <p><button onclick="listReturned()">刷新列表</button></p>
+  <pre id="returnedList">尚未加载</pre>
   <h2>常用接口</h2>
   <pre>GET  /health
 GET  /api/&lt;kind&gt;
 POST /api/&lt;kind&gt;
 GET  /api/entities/&lt;id&gt;
-POST /api/entities/&lt;id&gt;/actions</pre>
+POST /api/entities/&lt;id&gt;/actions
+GET  /api/entities/&lt;id&gt;/loan_check</pre>
 </main>
 <script>
 async function checkHealth() {
   const response = await fetch('/health');
   document.getElementById('result').textContent = JSON.stringify(await response.json(), null, 2);
+}
+
+async function loanCheck() {
+  const id = document.getElementById('loanSampleId').value.trim();
+  if (!id) return;
+  const response = await fetch('/api/entities/' + encodeURIComponent(id) + '/loan_check');
+  const info = await response.json();
+  const lines = [];
+  if (info.error) {
+    lines.push('查询失败: ' + info.error);
+  } else {
+    lines.push('样本: ' + info.sample_id + ' (' + info.sample_status + ')');
+    lines.push('模板版本: ' + (info.template_version || '无快照'));
+    lines.push('正文摘要: ' + (info.summary || '无快照'));
+    lines.push('冻结用途: ' + JSON.stringify(info.scope || []));
+    lines.push('冻结有效期: ' + (info.expires_at || '无'));
+    lines.push('核对结果: ' + (info.ok ? '可以借出' : '禁止借出'));
+    (info.reasons || []).forEach(function (reason) { lines.push('  - ' + reason); });
+  }
+  document.getElementById('loanResult').textContent = lines.join('\n');
+}
+
+async function listReturned() {
+  const response = await fetch('/api/consents?status=returned');
+  const body = await response.json();
+  const items = body.items || [];
+  if (!items.length) {
+    document.getElementById('returnedList').textContent = '没有待补签的同意书';
+    return;
+  }
+  document.getElementById('returnedList').textContent = items.map(function (item) {
+    return [
+      '同意书: ' + item.id,
+      '  模板版本: ' + (item.data.template_version || '未知'),
+      '  退回原因: ' + (item.data.reason || '未填写'),
+    ].join('\n');
+  }).join('\n\n');
 }
 </script>
 </body>
