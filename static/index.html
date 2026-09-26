@@ -16,18 +16,43 @@
   <h1>生物样本库知情同意与撤回</h1>
   <p>这是最小演示页面。使用浏览器或 curl 调用 JSON API。</p>
   <p><button onclick="checkHealth()">检查服务状态</button></p>
+  <h2>借出前核对</h2>
+  <p>
+    <input id="sampleId" placeholder="样本 ID" size="40">
+    <button onclick="loanCheck()">核对同意快照</button>
+  </p>
   <pre id="result">等待操作</pre>
   <h2>常用接口</h2>
   <pre>GET  /health
 GET  /api/&lt;kind&gt;
 POST /api/&lt;kind&gt;
 GET  /api/entities/&lt;id&gt;
-POST /api/entities/&lt;id&gt;/actions</pre>
+POST /api/entities/&lt;id&gt;/actions
+GET  /api/samples/&lt;id&gt;/loan_check</pre>
 </main>
 <script>
 async function checkHealth() {
   const response = await fetch('/health');
   document.getElementById('result').textContent = JSON.stringify(await response.json(), null, 2);
+}
+async function loanCheck() {
+  const id = document.getElementById('sampleId').value.trim();
+  const response = await fetch('/api/samples/' + encodeURIComponent(id) + '/loan_check');
+  const result = await response.json();
+  if (!response.ok) {
+    document.getElementById('result').textContent = JSON.stringify(result, null, 2);
+    return;
+  }
+  const lines = [
+    '模板版本: ' + ([result.template_code, result.template_version].filter(Boolean).join(' ') || '-'),
+    '正文摘要: ' + (result.summary || '-'),
+    '冻结用途: ' + ((result.purposes || []).join(', ') || '-'),
+    '有效期至: ' + (result.expires_at || '-'),
+    '同意状态: ' + (result.consent_status || '-'),
+    '退回原因: ' + (result.return_reason || '无'),
+    '可借出: ' + (result.loanable ? '是' : '否')
+  ];
+  document.getElementById('result').textContent = lines.join('\n') + '\n\n' + JSON.stringify(result, null, 2);
 }
 </script>
 </body>

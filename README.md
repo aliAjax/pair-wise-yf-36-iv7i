@@ -24,7 +24,14 @@ python3 app.py --db ./data.db --port 8302
 
 ## 核心对象
 
-- `participant`：参与者；`consent`：同意版本；`sample`：样本；`withdrawal`：撤回申请。
+- `participant`：参与者；`consent_template`：同意书模板（按`template_code`+`version`管理，含正文摘要、用途和有效期天数）；`consent`：签署实例；`sample`：样本；`withdrawal`：撤回申请。
+
+## 同意书版本与快照
+
+- 同意书生命周期：`draft`→`sign`→`signed`→`activate`→`active`，另有`returned`（退回补签）。
+- 签署（`sign`）时冻结快照：模板版本、正文摘要、用途和有效期（默认按模板有效期天数从签署日起算，可用`expires_at`覆盖）。
+- 模板改版（同一`template_code`发布新`version`）后：旧模板自动作废；未签的草稿切到新版；签过但还没生效的退回补签并记录退回原因；已经生效的仍按原快照办理。
+- 样本借出（`loan`）前核对快照：借出用途必须在快照用途内，且借出日不超过快照有效期。
 
 ## 主要接口
 
@@ -33,6 +40,7 @@ python3 app.py --db ./data.db --port 8302
 - `POST /api/<kind>`：创建对象；请求体为JSON。
 - `GET /api/entities/<id>`：读取对象当前版本。
 - `POST /api/entities/<id>/actions`：提交`{"action":"动作名","data":{...},"expected_version":数字}`。
+- `GET /api/samples/<id>/loan_check`：借出前核对，列出模板版本、正文摘要、冻结用途、有效期、同意状态和退回原因。
 - `GET /api/audit`：读取审计记录。
 
 请求身份通过`X-User-Id`和`X-Role`请求头传入。创建和动作的可执行角色由规则引擎控制。

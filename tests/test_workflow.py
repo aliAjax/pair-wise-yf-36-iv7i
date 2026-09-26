@@ -32,7 +32,7 @@ class WorkflowTest(unittest.TestCase):
 
     def test_full_workflow(self):
         created = {}
-        steps = [{'op': 'create', 'as': 'participant', 'kind': 'participant', 'data': {'name': 'Participant One'}}, {'op': 'create', 'as': 'consent', 'kind': 'consent', 'data': {'participant_id': '{participant}', 'scope': ['research']}}, {'op': 'transition', 'target': 'consent', 'action': 'activate', 'data': {'scope': ['research'], 'version': 'v1', 'expires_at': '2099-01-01'}, 'expect': 'active'}, {'op': 'create', 'as': 'sample', 'kind': 'sample', 'data': {'participant_id': '{participant}', 'sample_code': 'B-001', 'collected_at': '2026-01-01'}}, {'op': 'transition', 'target': 'sample', 'action': 'store', 'data': {'freezer': 'F1', 'position': 'A1', 'consent_id': '{consent}'}, 'expect': 'stored'}, {'op': 'create', 'as': 'withdrawal', 'kind': 'withdrawal', 'data': {'participant_id': '{participant}', 'requested_at': '2026-03-01'}}, {'op': 'transition', 'target': 'withdrawal', 'action': 'approve', 'data': {'reason': 'participant request', 'sample_ids': ['{sample}']}, 'expect': 'approved'}, {'op': 'transition', 'target': 'withdrawal', 'action': 'execute', 'data': {'executed_at': '2026-03-02'}, 'expect': 'executed'}]
+        steps = [{'op': 'create', 'as': 'participant', 'kind': 'participant', 'data': {'name': 'Participant One'}}, {'op': 'create', 'as': 'template', 'kind': 'consent_template', 'data': {'template_code': 'ICF-GENERAL', 'version': 'v1', 'summary': '同意样本用于未来医学研究', 'purposes': ['research'], 'validity_days': 3650}}, {'op': 'create', 'as': 'consent', 'kind': 'consent', 'data': {'participant_id': '{participant}', 'template_id': '{template}'}}, {'op': 'transition', 'target': 'consent', 'action': 'sign', 'data': {'signed_at': '2026-01-10'}, 'expect': 'signed'}, {'op': 'transition', 'target': 'consent', 'action': 'activate', 'data': {}, 'expect': 'active'}, {'op': 'create', 'as': 'sample', 'kind': 'sample', 'data': {'participant_id': '{participant}', 'sample_code': 'B-001', 'collected_at': '2026-01-01'}}, {'op': 'transition', 'target': 'sample', 'action': 'store', 'data': {'freezer': 'F1', 'position': 'A1', 'consent_id': '{consent}'}, 'expect': 'stored'}, {'op': 'transition', 'target': 'sample', 'action': 'loan', 'data': {'recipient': 'Lab A', 'purpose': 'research', 'due_at': '2026-12-01', 'loaned_at': '2026-02-01'}, 'expect': 'on_loan'}, {'op': 'transition', 'target': 'sample', 'action': 'return', 'data': {}, 'expect': 'stored'}, {'op': 'create', 'as': 'withdrawal', 'kind': 'withdrawal', 'data': {'participant_id': '{participant}', 'requested_at': '2026-03-01'}}, {'op': 'transition', 'target': 'withdrawal', 'action': 'approve', 'data': {'reason': 'participant request', 'sample_ids': ['{sample}']}, 'expect': 'approved'}, {'op': 'transition', 'target': 'withdrawal', 'action': 'execute', 'data': {'executed_at': '2026-03-02'}, 'expect': 'executed'}]
         for step in steps:
             if step["op"] == "create":
                 entity = self.service.create(
@@ -52,6 +52,12 @@ class WorkflowTest(unittest.TestCase):
                 )
             if "expect" in step:
                 self.assertEqual(entity["status"], step["expect"])
+        consent = self.service.get(created["consent"])
+        snapshot = consent["data"]["snapshot"]
+        self.assertEqual(snapshot["template_version"], "v1")
+        self.assertEqual(snapshot["summary"], "同意样本用于未来医学研究")
+        self.assertEqual(snapshot["purposes"], ["research"])
+        self.assertEqual(snapshot["expires_at"], "2036-01-08")
 
 
 if __name__ == "__main__":
